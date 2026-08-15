@@ -380,6 +380,8 @@
         let spawnCooldown = 10;
         let undockTimer = 0;
         let mapLevel = 1;
+        
+        let nextMachineGasTarget = 75; // Guaranteed machine spawn target
 
         let bgX = 0;
         let baseBgSpeed = 2.0;
@@ -401,11 +403,6 @@
 
         function startGame() {
             initAudio();
-            if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen().catch(err => {});
-            } else if (document.documentElement.webkitRequestFullscreen) {
-                document.documentElement.webkitRequestFullscreen();
-            }
             document.getElementById('startScreen').style.display = 'none';
             speakText("Guten Tag", 0.4, 0.85);
             startBGM();
@@ -426,7 +423,8 @@
                 activeMachine = null;
                 fartman.x = 150;
                 fartman.vy = fartman.lift;
-                undockTimer = 45;
+                undockTimer = 80; // Extended grace period after undocking early
+                nextMachineGasTarget = Math.min(75, gas - 15); // Recalculate next guaranteed spawn
                 playSound('fart');
             } else if (!isDocked && gas > 0) {
                 fartman.vy = fartman.lift;
@@ -463,11 +461,13 @@
             }
 
             const machineLayers = [window.innerHeight * 0.16, window.innerHeight * 0.44, window.innerHeight * 0.76];
-            let refillThreshold = 75;
-            if (machines.length === 0 && (gas < refillThreshold || Math.floor(score) % 300 === 0)) {
+            
+            // Guaranteed Next-Station Spawning logic based on remaining gas limits
+            if (machines.length === 0 && gas <= nextMachineGasTarget) {
                 let chosenY = machineLayers[Math.floor(Math.random() * machineLayers.length)];
-                machines.push({ x: window.innerWidth, y: chosenY, width: 80, height: 90, speed: bgSpeed, ignored: false });
-                spawnCooldown = Math.max(50, 140 - Math.floor(score / 5));
+                machines.push({ x: window.innerWidth + 150, y: chosenY, width: 80, height: 90, speed: bgSpeed, ignored: false });
+                nextMachineGasTarget -= 35; // Set a backup target if player misses this machine
+                spawnCooldown = Math.max(50, 140 - Math.floor(score / 5)); // Give a brief pause to obstacles
             } else {
                 let machineNearby = machines.some(m => m.x > window.innerWidth - 220);
 
@@ -534,6 +534,7 @@
             spawnCooldown = 10;
             undockTimer = 0;
             mapLevel = 1;
+            nextMachineGasTarget = 75; // Reset machine spawn logic
             baseBgSpeed = 2.0;
             bgSpeed = 2.0;
             fartman.x = 150;
@@ -585,7 +586,7 @@
             for (let i = planes.length - 1; i >= 0; i--) {
                 planes[i].x -= planes[i].speed * dt;
                 if (
-                    undockTimer === 0 &&
+                    undockTimer <= 0 &&
                     fartman.x < planes[i].x + planes[i].width - 8 &&
                     fartman.x + fartman.width > planes[i].x + 8 &&
                     fartman.y < planes[i].y + planes[i].height - 8 &&
@@ -599,7 +600,7 @@
             for (let i = birds.length - 1; i >= 0; i--) {
                 birds[i].x -= birds[i].speed * dt;
                 if (
-                    undockTimer === 0 &&
+                    undockTimer <= 0 &&
                     fartman.x < birds[i].x + birds[i].width - 6 &&
                     fartman.x + fartman.width > birds[i].x + 6 &&
                     fartman.y < birds[i].y + birds[i].height - 6 &&
@@ -626,7 +627,8 @@
                     activeMachine = null;
                     fartman.x = 150;
                     fartman.vy = fartman.lift;
-                    undockTimer = 45;
+                    undockTimer = 80; // Extended grace period gives player a steady start after max refuelling
+                    nextMachineGasTarget = 75; // Resets for guaranteed next spawn
                 }
                 
                 for (let i = machines.length - 1; i >= 0; i--) {
@@ -639,8 +641,12 @@
             fartman.vy += fartman.gravity * dt;
             fartman.y += fartman.vy * dt;
             
-            let gasDrainMultiplier = 1 + (score / 500);
-            gas = Math.max(0, gas - (((0.03 + (mapLevel * 0.003)) * gasDrainMultiplier) * dt)); 
+            // Post-Refill Grace Period: Gas doesn't drain until the grace period is over
+            if (undockTimer <= 0) {
+                let gasDrainMultiplier = 1 + (score / 500);
+                // Balanced Drain rate reduced slightly ensuring mathematically safe travel to next machine
+                gas = Math.max(0, gas - (((0.025 + (mapLevel * 0.002)) * gasDrainMultiplier) * dt)); 
+            }
 
             if (gas <= 0 && fartman.y >= window.innerHeight - 80) {
                 triggerGameOver();
@@ -660,7 +666,7 @@
                 if (
                     !isDocked &&
                     !machines[i].ignored &&
-                    undockTimer === 0 &&
+                    undockTimer <= 0 &&
                     fartman.x < machines[i].x + machines[i].width + 15 &&
                     fartman.x + fartman.width > machines[i].x - 15 &&
                     fartman.y + fartman.height >= machines[i].y - 25 &&
