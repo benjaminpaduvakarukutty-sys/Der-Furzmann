@@ -121,7 +121,7 @@
         <h2>Rule Book</h2>
         <ul>
             <li><strong>Space / Tap / Click:</strong> Fart to fly upward and consume gas.</li>
-            <li><strong>Gas Refill:</strong> Make sure you refill fully and make the Stink-O-Meter full to capacity, or you will die before reaching the next refilling machine.</li>
+            <li><strong>Gas Refill:</strong> Automatically docks at machines and refills fully to capacity before launching automatically.</li>
             <li><strong>Obstacles:</strong> Avoid birds and planes, or you will crash!</li>
         </ul>
         <button onclick="toggleRuleBook()">Resume Game</button>
@@ -409,19 +409,9 @@
         }
 
         function handleAction() {
-            if (!gameStarted || isGameOver || isPaused) return;
+            if (!gameStarted || isGameOver || isPaused || isDocked) return;
 
-            if (isDocked) {
-                isDocked = false;
-                if (activeMachine) {
-                    activeMachine.ignored = true;
-                }
-                activeMachine = null;
-                fartman.x = 150;
-                fartman.vy = fartman.lift;
-                undockTimer = 45;
-                playSound('fart');
-            } else if (!isDocked && gas > 0) {
+            if (gas > 0) {
                 fartman.vy = fartman.lift;
                 gas = Math.max(0, gas - 3.2); 
                 playSound('fart');
@@ -443,6 +433,7 @@
 
         window.addEventListener('mousedown', (e) => {
             if(e.target.tagName !== 'BUTTON') {
+                e.preventDefault();
                 handleAction();
             }
         });
@@ -620,6 +611,7 @@
                     fartman.x = 150;
                     fartman.vy = fartman.lift;
                     undockTimer = 45;
+                    playSound('fart');
                 }
                 
                 for (let i = machines.length - 1; i >= 0; i--) {
@@ -723,7 +715,7 @@
         function loop(currentTime) {
             let dt = (currentTime - lastTime) / 16.666;
             lastTime = currentTime;
-            if (dt > 2) dt = 2; // Capped dt to prevent mobile frame drops from skipping collisions
+            if (dt > 2) dt = 2;
 
             update(dt);
             draw();
