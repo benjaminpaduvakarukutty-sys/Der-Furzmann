@@ -11,14 +11,14 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            height: 100dvh;
             overflow: hidden;
             font-family: Arial, sans-serif;
             touch-action: none;
         }
         canvas {
             width: 100vw;
-            height: 100vh;
+            height: 100dvh;
             display: block;
             background: #222;
         }
@@ -422,7 +422,6 @@
             speakText("Guten Tag", 0.4, 0.85);
             startBGM();
             gameStarted = true;
-            // Spawn the first machine immediately so the player can reach it safely
             const machineLayers = [canvas.height * 0.16, canvas.height * 0.44, canvas.height * 0.76];
             let chosenY = machineLayers[Math.floor(Math.random() * machineLayers.length)];
             machines.push({ x: canvas.width * 0.8, y: chosenY, width: 80, height: 90, speed: bgSpeed, ignored: false });
