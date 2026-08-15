@@ -654,10 +654,10 @@
                     !isDocked &&
                     !machines[i].ignored &&
                     undockTimer === 0 &&
-                    fartman.x < machines[i].x + machines[i].width + 15 &&
-                    fartman.x + fartman.width > machines[i].x - 15 &&
-                    fartman.y + fartman.height >= machines[i].y - 25 &&
-                    fartman.y + fartman.height <= machines[i].y + 95
+                    fartman.x < machines[i].x + machines[i].width + 25 &&
+                    fartman.x + fartman.width > machines[i].x - 25 &&
+                    fartman.y + fartman.height >= machines[i].y - 35 &&
+                    fartman.y + fartman.height <= machines[i].y + 115
                 ) {
                     isDocked = true;
                     activeMachine = machines[i];
@@ -723,7 +723,7 @@
         function loop(currentTime) {
             let dt = (currentTime - lastTime) / 16.666;
             lastTime = currentTime;
-            if (dt > 3) dt = 3;
+            if (dt > 2) dt = 2; // Capped dt to prevent mobile frame drops from skipping collisions
 
             update(dt);
             draw();
