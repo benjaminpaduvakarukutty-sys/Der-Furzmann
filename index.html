@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Der Furzmann - Berlin Adventure</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            touch-action: none;
+        }
+        canvas {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            background: #222;
+        }
+        #startScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            background: rgba(0,0,0,0.85);
+            padding: 30px;
+            border-radius: 12px;
+            border: 2px solid #fff;
+            z-index: 10;
+        }
+        #startScreen button {
+            padding: 10px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        #startScreen button:hover {
+            background: #ff2222;
+        }
+        #gameOverScreen {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            background: rgba(0,0,0,0.85);
+            padding: 30px;
+            border-radius: 12px;
+            border: 2px solid #fff;
+            z-index: 10;
+        }
+        #gameOverScreen button {
+            padding: 10px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        #gameOverScreen button:hover {
+            background: #ff2222;
+        }
+        #ruleBookBtn {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 68, 68, 0.9);
+            color: white;
+            border: 2px solid #fff;
+            padding: 10px 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            z-index: 20;
+        }
+        #ruleBookBtn:hover {
+            background: rgba(255, 34, 34, 1);
+        }
+        #ruleBookModal {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            border: 2px solid #ff4444;
+            z-index: 30;
+            width: 320px;
+            text-align: left;
+        }
+        #ruleBookModal h2 {
+            margin-top: 0;
+            color: #ff4444;
+            text-align: center;
+        }
+        #ruleBookModal ul {
+            padding-left: 20px;
+            line-height: 1.5;
+        }
+        #ruleBookModal button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        #ruleBookModal button:hover {
+            background: #ff2222;
+        }
+    </style>
+</head>
+<body>
+
+    <button id="ruleBookBtn" onclick="toggleRuleBook()">📖 Rules</button>
+
+    <div id="ruleBookModal">
+        <h2>Rule Book</h2>
+        <ul>
+            <li><strong>Space / Tap / Click:</strong> Fart to fly upward and consume gas.</li>
+            <li><strong>Gas Refill:</strong> Make sure you refill full and make the Stink-O-Meter full to its capacity, or you will die before reaching the next refilling machine.</li>
+            <li><strong>Obstacles:</strong> Avoid birds and planes, or you will crash!</li>
+        </ul>
+        <button onclick="toggleRuleBook()">Resume Game</button>
+    </div>
+
+    <div id="startScreen">
+        <h1>Der Furzmann - Berlin Adventure</h1>
+        <button onclick="startGame()">Start the Furzmann</button>
+    </div>
+
+    <div id="gameOverScreen">
+        <h1>CRASH & BURN!</h1>
+        <p>Final Score: <span id="finalScore">0</span></p>
+        <p>High Score: <span id="finalHighScore">0</span></p>
+        <button onclick="restartGame()">Play Again</button>
+    </div>
+
+    <script>
+        const canvas = document.createElement('canvas');
+        canvas.width = 900;
+        canvas.height = 500;
+        document.body.appendChild(canvas);
+        const ctx = canvas.getContext('2d');
+
+        let audioCtx = null;
+        let bgmInterval = null;
+        let germanVoices = [];
+        let isPaused = false;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function toggleRuleBook() {
+            const modal = document.getElementById('ruleBookModal');
+            if (modal.style.display === 'block') {
+                modal.style.display = 'none';
+                isPaused = false;
+                if (gameStarted && !isGameOver) {
+                    startBGM();
+                }
+            } else {
+                modal.style.display = 'block';
+                isPaused = true;
+                stopBGM();
+            }
+        }
+
+        function loadVoices() {
+            if ('speechSynthesis' in window) {
+                let voices = window.speechSynthesis.getVoices();
+                germanVoices = voices.filter(v => v.lang.startsWith('de'));
+            }
+        }
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = loadVoices;
+            loadVoices();
+        }
+
+        function speakText(text, pitch = 0.4, rate = 0.85) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                let utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'de-DE';
+                utterance.pitch = pitch;
+                utterance.rate = rate;
+
+                let selectedVoice = germanVoices.find(v => v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('stefan') || v.name.toLowerCase().includes('jan') || v.name.toLowerCase().includes('markus') || v.name.toLowerCase().includes('falk') || v.name.toLowerCase().includes('pavel') || (!v.name.toLowerCase().includes('female') && !v.name.toLowerCase().includes('vicki') && !v.name.toLowerCase().includes('katja') && !v.name.toLowerCase().includes('hedda')));
+                if (selectedVoice) {
+                    utterance.voice = selectedVoice;
+                }
+
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function startBGM() {
+            if (!audioCtx || isPaused) return;
+            if (bgmInterval) clearInterval(bgmInterval);
+
+            let step = 0;
+            const bassNotes = [110, 110, 164.81, 130.81, 110, 196, 164.81, 146.83];
+
+            bgmInterval = setInterval(() => {
+                if (!gameStarted || isGameOver || isPaused) return;
+                let now = audioCtx.currentTime;
+
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(bassNotes[step % bassNotes.length], now);
+                
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.2);
+
+                if (step % 2 === 1) {
+                    let noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.05, audioCtx.sampleRate);
+                    let output = noiseBuffer.getChannelData(0);
+                    for (let i = 0; i < noiseBuffer.length; i++) {
+                        output[i] = Math.random() * 2 - 1;
+                    }
+                    let whiteNoise = audioCtx.createBufferSource();
+                    whiteNoise.buffer = noiseBuffer;
+
+                    let filter = audioCtx.createBiquadFilter();
+                    filter.type = 'highpass';
+                    filter.frequency.setValueAtTime(5000, now);
+
+                    let noiseGain = audioCtx.createGain();
+                    noiseGain.gain.setValueAtTime(0.03, now);
+                    noiseGain.gain.linearRampToValueAtTime(0.001, now + 0.05);
+
+                    whiteNoise.connect(filter);
+                    filter.connect(noiseGain);
+                    noiseGain.connect(audioCtx.destination);
+
+                    whiteNoise.start(now);
+                    whiteNoise.stop(now + 0.05);
+                }
+
+                step++;
+            }, 150);
+        }
+
+        function stopBGM() {
+            if (bgmInterval) {
+                clearInterval(bgmInterval);
+                bgmInterval = null;
+            }
+        }
+
+        function playSound(type) {
+            if (!audioCtx || isPaused) return;
+            let now = audioCtx.currentTime;
+
+            if (type === 'fart') {
+                let osc = audioCtx.createOscillator();
+                let gainNode = audioCtx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            } else if (type === 'crash') {
+                let osc = audioCtx.createOscillator();
+                let gainNode = audioCtx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(80, now);
+                osc.frequency.linearRampToValueAtTime(20, now + 0.4);
+                gainNode.gain.setValueAtTime(0.4, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            } else if (type === 'dock') {
+                let osc = audioCtx.createOscillator();
+                let gainNode = audioCtx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(600, now + 0.2);
+                gainNode.gain.setValueAtTime(0.2, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            } else if (type === 'bird') {
+                let osc = audioCtx.createOscillator();
+                let gainNode = audioCtx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1200, now);
+                osc.frequency.linearRampToValueAtTime(1600, now + 0.08);
+                osc.frequency.linearRampToValueAtTime(1100, now + 0.15);
+                gainNode.gain.setValueAtTime(0.08, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            } else if (type === 'plane') {
+                let osc = audioCtx.createOscillator();
+                let gainNode = audioCtx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(90, now);
+                osc.frequency.linearRampToValueAtTime(70, now + 0.5);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            }
+        }
+
+        const imgGround = new Image();
+        imgGround.src = 'assets/images/fartman_ground.png';
+
+        const imgFlying = new Image();
+        imgFlying.src = 'assets/images/fartman_flying.png';
+
+        const imgDocked = new Image();
+        imgDocked.src = 'assets/images/fartman_docked.png';
+
+        const imgMachine = new Image();
+        imgMachine.src = 'assets/images/machine.png';
+
+        const imgPlane = new Image();
+        imgPlane.src = 'assets/images/plane.png';
+
+        const birdImgs = [new Image(), new Image(), new Image()];
+        birdImgs[0].src = 'assets/images/bird_1.png';
+        birdImgs[1].src = 'assets/images/bird_2.png';
+        birdImgs[2].src = 'assets/images/bird_3.png';
+
+        const berlinImgs = [];
+        for (let i = 1; i <= 11; i++) {
+            const bgImg = new Image();
+            let ext = 'png';
+            bgImg.src = `assets/images/berlin_${i}.${ext}`;
+            berlinImgs.push(bgImg);
+        }
+
+        let score = 0;
+        let highScore = localStorage.getItem('furzmann_highscore') ? parseInt(localStorage.getItem('furzmann_highscore')) : 0;
+        let gas = 100;
+        let isDocked = false;
+        let activeMachine = null;
+        let isGameOver = false;
+        let gameStarted = false;
+        let frameCount = 0;
+        let birdFrameIndex = 0;
+
+        let spawnCooldown = 25;
+        let undockTimer = 0;
+        let mapLevel = 1;
+
+        let bgX = 0;
+        let baseBgSpeed = 2.0;
+        let bgSpeed = 2.0;
+
+        let fartman = {
+            x: 150,
+            y: 250,
+            width: 70,
+            height: 70,
+            vy: 0,
+            gravity: 0.62, 
+            lift: -7.3
+        };
+
+        let planes = [];
+        let birds = [];
+        let machines = [];
+        const machineLayers = [80, 220, 380];
+
+        function startGame() {
+            initAudio();
+            document.getElementById('startScreen').style.display = 'none';
+            speakText("Guten Tag", 0.4, 0.85);
+            startBGM();
+            gameStarted = true;
+        }
+
+        function handleAction() {
+            if (!gameStarted || isGameOver || isPaused) return;
+
+            if (isDocked) {
+                isDocked = false;
+                if (activeMachine) {
+                    activeMachine.ignored = true;
+                }
+                activeMachine = null;
+                fartman.x = 150;
+                fartman.vy = fartman.lift;
+                undockTimer = 45;
+                playSound('fart');
+            } else if (!isDocked && gas > 0) {
+                fartman.vy = fartman.lift;
+                gas = Math.max(0, gas - 4.2); 
+                playSound('fart');
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                handleAction();
+            }
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleAction();
+        }, { passive: false });
+
+        canvas.addEventListener('mousedown', (e) => {
+            handleAction();
+        });
+
+        function spawnEntities() {
+            if (isDocked || undockTimer > 0) return;
+
+            if (spawnCooldown > 0) {
+                spawnCooldown--;
+                return;
+            }
+
+            let refillThreshold = 90;
+            if (machines.length === 0 && (gas < refillThreshold || score % 300 === 0)) {
+                let chosenY = machineLayers[Math.floor(Math.random() * machineLayers.length)];
+                machines.push({ x: canvas.width, y: chosenY, width: 80, height: 90, speed: bgSpeed, ignored: false });
+                spawnCooldown = Math.max(50, 140 - Math.floor(score / 5));
+            } else {
+                let machineNearby = machines.some(m => m.x > canvas.width - 220);
+
+                if (!machineNearby) {
+                    let candidateY = Math.random() * (canvas.height - 50);
+
+                    let activeMachineOnScreen = machines[0];
+                    if (activeMachineOnScreen) {
+                        while (Math.abs(candidateY - activeMachineOnScreen.y) < 70) {
+                            candidateY = Math.random() * (canvas.height - 50);
+                        }
+                    }
+
+                    let scoreDifficultyScale = 1 + (score / 500);
+                    let obstacleSpeedMultiplier = (1.15 + (mapLevel - 1) * 0.4) * scoreDifficultyScale;
+
+                    if (Math.random() < 0.4) {
+                        planes.push({ 
+                            x: canvas.width, 
+                            y: candidateY, 
+                            width: 90, 
+                            height: 45, 
+                            speed: (3.8 * obstacleSpeedMultiplier) 
+                        });
+                        playSound('plane');
+                    } else {
+                        birds.push({ 
+                            x: canvas.width, 
+                            y: candidateY, 
+                            width: 45, 
+                            height: 35, 
+                            speed: (3.2 * obstacleSpeedMultiplier) 
+                        });
+                        playSound('bird');
+                    }
+                }
+                
+                let minCooldown = Math.max(5, 25 - (mapLevel * 3) - Math.floor(score / 30));
+                spawnCooldown = minCooldown;
+            }
+        }
+
+        function triggerGameOver() {
+            isGameOver = true;
+            stopBGM();
+            playSound('crash');
+            speakText("Scheiße!", 0.4, 0.85);
+            let currentScore = Math.floor(score);
+            if (currentScore > highScore) {
+                highScore = currentScore;
+                localStorage.setItem('furzmann_highscore', highScore);
+            }
+            document.getElementById('finalScore').innerText = currentScore;
+            document.getElementById('finalHighScore').innerText = highScore;
+            document.getElementById('gameOverScreen').style.display = 'block';
+        }
+
+        function restartGame() {
+            score = 0;
+            gas = 100;
+            isDocked = false;
+            activeMachine = null;
+            isGameOver = false;
+            spawnCooldown = 25;
+            undockTimer = 0;
+            mapLevel = 1;
+            baseBgSpeed = 2.0;
+            bgSpeed = 2.0;
+            fartman.x = 150;
+            fartman.y = 250;
+            fartman.vy = 0;
+            planes = [];
+            birds = [];
+            machines = [];
+            bgX = 0;
+            document.getElementById('gameOverScreen').style.display = 'none';
+            gameStarted = true;
+
+            speakText("Guten Tag", 0.4, 0.85);
+            startBGM();
+        }
+
+        function update() {
+            if (!gameStarted || isPaused) return;
+
+            if (undockTimer > 0) {
+                undockTimer--;
+            }
+
+            if (isGameOver) {
+                fartman.vy += 0.8;
+                fartman.y += fartman.vy;
+                return;
+            }
+
+            frameCount++;
+            if (frameCount % 8 === 0) {
+                birdFrameIndex = (birdFrameIndex + 1) % birdImgs.length;
+            }
+
+            bgSpeed = Math.min(9.0, baseBgSpeed + (score * 0.003));
+
+            bgX -= bgSpeed;
+            const totalWidth = canvas.width * 11;
+            if (bgX <= -totalWidth) {
+                bgX = 0;
+                mapLevel++;
+                baseBgSpeed = Math.min(7.0, baseBgSpeed + 0.45);
+            }
+
+            for (let i = planes.length - 1; i >= 0; i--) {
+                planes[i].x -= planes[i].speed;
+                if (
+                    undockTimer === 0 &&
+                    fartman.x < planes[i].x + planes[i].width - 8 &&
+                    fartman.x + fartman.width > planes[i].x + 8 &&
+                    fartman.y < planes[i].y + planes[i].height - 8 &&
+                    fartman.y + fartman.height > planes[i].y + 8
+                ) {
+                    triggerGameOver();
+                }
+                if (planes[i].x + planes[i].width < 0) planes.splice(i, 1);
+            }
+
+            for (let i = birds.length - 1; i >= 0; i--) {
+                birds[i].x -= birds[i].speed;
+                if (
+                    undockTimer === 0 &&
+                    fartman.x < birds[i].x + birds[i].width - 6 &&
+                    fartman.x + fartman.width > birds[i].x + 6 &&
+                    fartman.y < birds[i].y + birds[i].height - 6 &&
+                    fartman.y + fartman.height > birds[i].y + 6
+                ) {
+                    triggerGameOver();
+                }
+                if (birds[i].x + birds[i].width < 0) birds.splice(i, 1);
+            }
+
+            if (isDocked) {
+                gas = Math.min(100, gas + 1.5); 
+                if (activeMachine) {
+                    activeMachine.x -= bgSpeed;
+                    fartman.x = activeMachine.x + 5;
+                    fartman.y = activeMachine.y - fartman.height + 5;
+                }
+                
+                if (gas >= 100) {
+                    isDocked = false;
+                    if (activeMachine) {
+                        activeMachine.ignored = true;
+                    }
+                    activeMachine = null;
+                    fartman.x = 150;
+                    fartman.vy = fartman.lift;
+                    undockTimer = 45;
+                }
+                
+                for (let i = machines.length - 1; i >= 0; i--) {
+                    machines[i].x -= bgSpeed;
+                    if (machines[i].x + machines[i].width < 0) machines.splice(i, 1);
+                }
+                return;
+            }
+
+            fartman.vy += fartman.gravity;
+            fartman.y += fartman.vy;
+            
+            let gasDrainMultiplier = 1 + (score / 500);
+            gas = Math.max(0, gas - ((0.045 + (mapLevel * 0.004)) * gasDrainMultiplier)); 
+
+            if (gas <= 0 && fartman.y >= canvas.height - 80) {
+                triggerGameOver();
+            }
+
+            if (fartman.y > canvas.height - 80) {
+                fartman.y = canvas.height - 80;
+                fartman.vy = 0;
+            }
+            if (fartman.y < 0) {
+                fartman.y = 0;
+                fartman.vy = 0;
+            }
+
+            for (let i = machines.length - 1; i >= 0; i--) {
+                machines[i].x -= bgSpeed;
+                if (
+                    !isDocked &&
+                    !machines[i].ignored &&
+                    undockTimer === 0 &&
+                    fartman.x < machines[i].x + machines[i].width + 15 &&
+                    fartman.x + fartman.width > machines[i].x - 15 &&
+                    fartman.y + fartman.height >= machines[i].y - 25 &&
+                    fartman.y + fartman.height <= machines[i].y + 95
+                ) {
+                    isDocked = true;
+                    activeMachine = machines[i];
+                    fartman.x = activeMachine.x + 5;
+                    fartman.y = activeMachine.y - fartman.height + 5;
+                    fartman.vy = 0;
+                    playSound('dock');
+                }
+                if (machines[i].x + machines[i].width < 0) machines.splice(i, 1);
+            }
+
+            score += 1;
+
+            spawnEntities();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            berlinImgs.forEach((img, index) => {
+                let xPos = bgX + (index * canvas.width);
+                ctx.drawImage(img, xPos, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, xPos + (canvas.width * 11), 0, canvas.width, canvas.height);
+            });
+
+            machines.forEach(machine => {
+                ctx.drawImage(imgMachine, machine.x, machine.y, machine.width, machine.height);
+            });
+
+            planes.forEach(plane => {
+                ctx.drawImage(imgPlane, plane.x, plane.y, plane.width, plane.height);
+            });
+
+            birds.forEach(bird => {
+                ctx.drawImage(birdImgs[birdFrameIndex], bird.x, bird.y, bird.width, bird.height);
+            });
+
+            if (isDocked) {
+                ctx.drawImage(imgDocked, fartman.x, fartman.y, fartman.width, fartman.height);
+            } else if (fartman.y >= canvas.height - 80 && fartman.vy === 0) {
+                ctx.drawImage(imgGround, fartman.x, fartman.y, fartman.width, fartman.height);
+            } else {
+                ctx.drawImage(imgFlying, fartman.x, fartman.y, fartman.width, fartman.height);
+            }
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 20px Arial';
+            ctx.fillText("Score: " + Math.floor(score), 20, 35);
+            ctx.fillText("High Score: " + highScore, 20, 65);
+            ctx.fillText("Map: Berlin", 20, 95);
+
+            ctx.fillStyle = '#444';
+            ctx.fillRect(canvas.width - 240, 20, 220, 22);
+            ctx.fillStyle = gas > 30 ? '#00ff00' : '#ff0000';
+            ctx.fillRect(canvas.width - 240, 20, 2.2 * gas, 22);
+            ctx.strokeStyle = '#ffffff';
+            ctx.strokeRect(canvas.width - 240, 20, 220, 22);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 12px Arial';
+            ctx.fillText("STINK-O-METER", canvas.width - 180, 35);
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>
