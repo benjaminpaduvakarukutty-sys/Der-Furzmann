@@ -2,9 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Der Furzmann - Berlin Adventure</title>
     <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
         body {
             margin: 0;
             background-color: #111;
@@ -12,17 +16,17 @@
             justify-content: center;
             align-items: center;
             height: 100dvh;
+            width: 100vw;
             overflow: hidden;
             font-family: Arial, sans-serif;
             touch-action: none;
+            position: fixed;
         }
         canvas {
-            width: 100vw;
-            height: 100dvh;
             display: block;
             background: #222;
         }
-        #startScreen {
+        #startScreen, #gameOverScreen {
             position: absolute;
             top: 50%;
             left: 50%;
@@ -30,13 +34,16 @@
             text-align: center;
             color: white;
             background: rgba(0,0,0,0.85);
-            padding: 30px;
+            padding: 25px;
             border-radius: 12px;
             border: 2px solid #fff;
             z-index: 10;
+            width: 85%;
+            max-width: 360px;
         }
-        #startScreen button {
-            padding: 10px 20px;
+        #startScreen button, #gameOverScreen button {
+            width: 100%;
+            padding: 12px;
             font-size: 18px;
             font-weight: bold;
             cursor: pointer;
@@ -46,40 +53,15 @@
             border-radius: 6px;
             margin-top: 15px;
         }
-        #startScreen button:hover {
+        #startScreen button:active, #gameOverScreen button:active {
             background: #ff2222;
         }
         #gameOverScreen {
             display: none;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            color: white;
-            background: rgba(0,0,0,0.85);
-            padding: 30px;
-            border-radius: 12px;
-            border: 2px solid #fff;
-            z-index: 10;
-        }
-        #gameOverScreen button {
-            padding: 10px 20px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            background: #ff4444;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            margin-top: 15px;
-        }
-        #gameOverScreen button:hover {
-            background: #ff2222;
         }
         #ruleBookBtn {
             position: absolute;
-            bottom: 20px;
+            bottom: max(20px, env(safe-area-inset-bottom));
             left: 20px;
             background: rgba(255, 68, 68, 0.9);
             color: white;
@@ -91,9 +73,6 @@
             cursor: pointer;
             z-index: 20;
         }
-        #ruleBookBtn:hover {
-            background: rgba(255, 34, 34, 1);
-        }
         #ruleBookModal {
             display: none;
             position: absolute;
@@ -102,11 +81,12 @@
             transform: translate(-50%, -50%);
             background: rgba(0, 0, 0, 0.95);
             color: white;
-            padding: 25px;
+            padding: 20px;
             border-radius: 12px;
             border: 2px solid #ff4444;
             z-index: 30;
-            width: 320px;
+            width: 90%;
+            max-width: 320px;
             text-align: left;
         }
         #ruleBookModal h2 {
@@ -116,7 +96,8 @@
         }
         #ruleBookModal ul {
             padding-left: 20px;
-            line-height: 1.5;
+            line-height: 1.4;
+            font-size: 14px;
         }
         #ruleBookModal button {
             display: block;
@@ -130,9 +111,6 @@
             cursor: pointer;
             margin-top: 15px;
         }
-        #ruleBookModal button:hover {
-            background: #ff2222;
-        }
     </style>
 </head>
 <body>
@@ -143,7 +121,7 @@
         <h2>Rule Book</h2>
         <ul>
             <li><strong>Space / Tap / Click:</strong> Fart to fly upward and consume gas.</li>
-            <li><strong>Gas Refill:</strong> Make sure you refill full and make the Stink-O-Meter full to its capacity, or you will die before reaching the next refilling machine.</li>
+            <li><strong>Gas Refill:</strong> Make sure you refill fully and make the Stink-O-Meter full to capacity, or you will die before reaching the next refilling machine.</li>
             <li><strong>Obstacles:</strong> Avoid birds and planes, or you will crash!</li>
         </ul>
         <button onclick="toggleRuleBook()">Resume Game</button>
@@ -163,15 +141,20 @@
 
     <script>
         const canvas = document.createElement('canvas');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
         document.body.appendChild(canvas);
         const ctx = canvas.getContext('2d');
 
-        window.addEventListener('resize', () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        });
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            canvas.style.width = window.innerWidth + 'px';
+            canvas.style.height = window.innerHeight + 'px';
+            ctx.scale(dpr, dpr);
+        }
+
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
 
         let audioCtx = null;
         let bgmInterval = null;
@@ -427,9 +410,9 @@
             speakText("Guten Tag", 0.4, 0.85);
             startBGM();
             gameStarted = true;
-            const machineLayers = [canvas.height * 0.16, canvas.height * 0.44, canvas.height * 0.76];
+            const machineLayers = [window.innerHeight * 0.16, window.innerHeight * 0.44, window.innerHeight * 0.76];
             let chosenY = machineLayers[Math.floor(Math.random() * machineLayers.length)];
-            machines.push({ x: canvas.width * 0.8, y: chosenY, width: 80, height: 90, speed: bgSpeed, ignored: false });
+            machines.push({ x: window.innerWidth * 0.8, y: chosenY, width: 80, height: 90, speed: bgSpeed, ignored: false });
         }
 
         function handleAction() {
@@ -458,13 +441,17 @@
             }
         });
 
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            handleAction();
+        window.addEventListener('touchstart', (e) => {
+            if(e.target.tagName !== 'BUTTON') {
+                e.preventDefault();
+                handleAction();
+            }
         }, { passive: false });
 
-        canvas.addEventListener('mousedown', (e) => {
-            handleAction();
+        window.addEventListener('mousedown', (e) => {
+            if(e.target.tagName !== 'BUTTON') {
+                handleAction();
+            }
         });
 
         function spawnEntities(dt) {
@@ -475,22 +462,22 @@
                 return;
             }
 
-            const machineLayers = [canvas.height * 0.16, canvas.height * 0.44, canvas.height * 0.76];
+            const machineLayers = [window.innerHeight * 0.16, window.innerHeight * 0.44, window.innerHeight * 0.76];
             let refillThreshold = 75;
             if (machines.length === 0 && (gas < refillThreshold || Math.floor(score) % 300 === 0)) {
                 let chosenY = machineLayers[Math.floor(Math.random() * machineLayers.length)];
-                machines.push({ x: canvas.width, y: chosenY, width: 80, height: 90, speed: bgSpeed, ignored: false });
+                machines.push({ x: window.innerWidth, y: chosenY, width: 80, height: 90, speed: bgSpeed, ignored: false });
                 spawnCooldown = Math.max(50, 140 - Math.floor(score / 5));
             } else {
-                let machineNearby = machines.some(m => m.x > canvas.width - 220);
+                let machineNearby = machines.some(m => m.x > window.innerWidth - 220);
 
                 if (!machineNearby) {
-                    let candidateY = Math.random() * (canvas.height - 50);
+                    let candidateY = Math.random() * (window.innerHeight - 50);
 
                     let activeMachineOnScreen = machines[0];
                     if (activeMachineOnScreen) {
                         while (Math.abs(candidateY - activeMachineOnScreen.y) < 70) {
-                            candidateY = Math.random() * (canvas.height - 50);
+                            candidateY = Math.random() * (window.innerHeight - 50);
                         }
                     }
 
@@ -499,7 +486,7 @@
 
                     if (Math.random() < 0.4) {
                         planes.push({ 
-                            x: canvas.width, 
+                            x: window.innerWidth, 
                             y: candidateY, 
                             width: 90, 
                             height: 45, 
@@ -508,7 +495,7 @@
                         playSound('plane');
                     } else {
                         birds.push({ 
-                            x: canvas.width, 
+                            x: window.innerWidth, 
                             y: candidateY, 
                             width: 45, 
                             height: 35, 
@@ -550,7 +537,7 @@
             baseBgSpeed = 2.0;
             bgSpeed = 2.0;
             fartman.x = 150;
-            fartman.y = canvas.height * 0.5;
+            fartman.y = window.innerHeight * 0.5;
             fartman.vy = 0;
             planes = [];
             birds = [];
@@ -562,9 +549,9 @@
             speakText("Guten Tag", 0.4, 0.85);
             startBGM();
 
-            const machineLayers = [canvas.height * 0.16, canvas.height * 0.44, canvas.height * 0.76];
+            const machineLayers = [window.innerHeight * 0.16, window.innerHeight * 0.44, window.innerHeight * 0.76];
             let chosenY = machineLayers[Math.floor(Math.random() * machineLayers.length)];
-            machines.push({ x: canvas.width * 0.8, y: chosenY, width: 80, height: 90, speed: bgSpeed, ignored: false });
+            machines.push({ x: window.innerWidth * 0.8, y: chosenY, width: 80, height: 90, speed: bgSpeed, ignored: false });
         }
 
         function update(dt) {
@@ -588,7 +575,7 @@
             bgSpeed = Math.min(9.0, baseBgSpeed + (score * 0.003));
 
             bgX -= bgSpeed * dt;
-            const totalWidth = canvas.width * 11;
+            const totalWidth = window.innerWidth * 11;
             if (bgX <= -totalWidth) {
                 bgX = 0;
                 mapLevel++;
@@ -655,12 +642,12 @@
             let gasDrainMultiplier = 1 + (score / 500);
             gas = Math.max(0, gas - (((0.03 + (mapLevel * 0.003)) * gasDrainMultiplier) * dt)); 
 
-            if (gas <= 0 && fartman.y >= canvas.height - 80) {
+            if (gas <= 0 && fartman.y >= window.innerHeight - 80) {
                 triggerGameOver();
             }
 
-            if (fartman.y > canvas.height - 80) {
-                fartman.y = canvas.height - 80;
+            if (fartman.y > window.innerHeight - 80) {
+                fartman.y = window.innerHeight - 80;
                 fartman.vy = 0;
             }
             if (fartman.y < 0) {
@@ -690,17 +677,16 @@
             }
 
             score += 1 * dt;
-
             spawnEntities(dt);
         }
 
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
             berlinImgs.forEach((img, index) => {
-                let xPos = bgX + (index * canvas.width);
-                ctx.drawImage(img, xPos, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, xPos + (canvas.width * 11), 0, canvas.width, canvas.height);
+                let xPos = bgX + (index * window.innerWidth);
+                ctx.drawImage(img, xPos, 0, window.innerWidth, window.innerHeight);
+                ctx.drawImage(img, xPos + (window.innerWidth * 11), 0, window.innerWidth, window.innerHeight);
             });
 
             machines.forEach(machine => {
@@ -717,7 +703,7 @@
 
             if (isDocked) {
                 ctx.drawImage(imgDocked, fartman.x, fartman.y, fartman.width, fartman.height);
-            } else if (fartman.y >= canvas.height - 80 && fartman.vy === 0) {
+            } else if (fartman.y >= window.innerHeight - 80 && fartman.vy === 0) {
                 ctx.drawImage(imgGround, fartman.x, fartman.y, fartman.width, fartman.height);
             } else {
                 ctx.drawImage(imgFlying, fartman.x, fartman.y, fartman.width, fartman.height);
@@ -730,14 +716,14 @@
             ctx.fillText("Map: Berlin", 20, 95);
 
             ctx.fillStyle = '#444';
-            ctx.fillRect(canvas.width - 240, 20, 220, 22);
+            ctx.fillRect(window.innerWidth - 240, 20, 220, 22);
             ctx.fillStyle = gas > 30 ? '#00ff00' : '#ff0000';
-            ctx.fillRect(canvas.width - 240, 20, 2.2 * gas, 22);
+            ctx.fillRect(window.innerWidth - 240, 20, 2.2 * gas, 22);
             ctx.strokeStyle = '#ffffff';
-            ctx.strokeRect(canvas.width - 240, 20, 220, 22);
+            ctx.strokeRect(window.innerWidth - 240, 20, 220, 22);
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 12px Arial';
-            ctx.fillText("STINK-O-METER", canvas.width - 180, 35);
+            ctx.fillText("STINK-O-METER", window.innerWidth - 180, 35);
         }
 
         let lastTime = performance.now();
