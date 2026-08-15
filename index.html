@@ -378,6 +378,7 @@
         let spawnCooldown = 10;
         let undockTimer = 0;
         let mapLevel = 1;
+        let nextMachineScore = 300;
 
         let bgX = 0;
         let baseBgSpeed = 2.0;
@@ -390,7 +391,7 @@
             height: 70,
             vy: 0,
             gravity: 0.62, 
-            lift: -7.3
+            lift: -7.5
         };
 
         let planes = [];
@@ -403,6 +404,7 @@
             speakText("Guten Tag", 0.4, 0.85);
             startBGM();
             gameStarted = true;
+            nextMachineScore = 300;
             const machineLayers = [window.innerHeight * 0.16, window.innerHeight * 0.44, window.innerHeight * 0.76];
             let chosenY = machineLayers[Math.floor(Math.random() * machineLayers.length)];
             machines.push({ x: window.innerWidth * 0.8, y: chosenY, width: 80, height: 90, speed: bgSpeed, ignored: false });
@@ -413,7 +415,7 @@
 
             if (gas > 0) {
                 fartman.vy = fartman.lift;
-                gas = Math.max(0, gas - 3.2); 
+                gas = Math.max(0, gas - 3.0); 
                 playSound('fart');
             }
         }
@@ -447,10 +449,10 @@
             }
 
             const machineLayers = [window.innerHeight * 0.16, window.innerHeight * 0.44, window.innerHeight * 0.76];
-            let refillThreshold = 75;
-            if (machines.length === 0 && (gas < refillThreshold || Math.floor(score) % 300 === 0)) {
+            if (score >= nextMachineScore) {
                 let chosenY = machineLayers[Math.floor(Math.random() * machineLayers.length)];
                 machines.push({ x: window.innerWidth, y: chosenY, width: 80, height: 90, speed: bgSpeed, ignored: false });
+                nextMachineScore += 300;
                 spawnCooldown = Math.max(50, 140 - Math.floor(score / 5));
             } else {
                 let machineNearby = machines.some(m => m.x > window.innerWidth - 220);
@@ -518,6 +520,7 @@
             spawnCooldown = 10;
             undockTimer = 0;
             mapLevel = 1;
+            nextMachineScore = 300;
             baseBgSpeed = 2.0;
             bgSpeed = 2.0;
             fartman.x = 150;
@@ -610,7 +613,7 @@
                     activeMachine = null;
                     fartman.x = 150;
                     fartman.vy = fartman.lift;
-                    undockTimer = 45;
+                    undockTimer = 20; 
                     playSound('fart');
                 }
                 
@@ -645,11 +648,11 @@
                 if (
                     !isDocked &&
                     !machines[i].ignored &&
-                    undockTimer === 0 &&
-                    fartman.x < machines[i].x + machines[i].width + 25 &&
-                    fartman.x + fartman.width > machines[i].x - 25 &&
-                    fartman.y + fartman.height >= machines[i].y - 35 &&
-                    fartman.y + fartman.height <= machines[i].y + 115
+                    undockTimer <= 0 &&
+                    fartman.x < machines[i].x + machines[i].width + 60 &&
+                    fartman.x + fartman.width > machines[i].x - 60 &&
+                    fartman.y + fartman.height >= machines[i].y - 80 &&
+                    fartman.y + fartman.height <= machines[i].y + machines[i].height + 80
                 ) {
                     isDocked = true;
                     activeMachine = machines[i];
