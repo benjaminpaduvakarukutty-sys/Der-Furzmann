@@ -418,6 +418,11 @@
 
         function startGame() {
             initAudio();
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(err => {});
+            } else if (document.documentElement.webkitRequestFullscreen) {
+                document.documentElement.webkitRequestFullscreen();
+            }
             document.getElementById('startScreen').style.display = 'none';
             speakText("Guten Tag", 0.4, 0.85);
             startBGM();
@@ -462,17 +467,17 @@
             handleAction();
         });
 
-        function spawnEntities() {
+        function spawnEntities(dt) {
             if (isDocked || undockTimer > 0) return;
 
             if (spawnCooldown > 0) {
-                spawnCooldown--;
+                spawnCooldown -= dt;
                 return;
             }
 
             const machineLayers = [canvas.height * 0.16, canvas.height * 0.44, canvas.height * 0.76];
             let refillThreshold = 75;
-            if (machines.length === 0 && (gas < refillThreshold || score % 300 === 0)) {
+            if (machines.length === 0 && (gas < refillThreshold || Math.floor(score) % 300 === 0)) {
                 let chosenY = machineLayers[Math.floor(Math.random() * machineLayers.length)];
                 machines.push({ x: canvas.width, y: chosenY, width: 80, height: 90, speed: bgSpeed, ignored: false });
                 spawnCooldown = Math.max(50, 140 - Math.floor(score / 5));
@@ -562,16 +567,16 @@
             machines.push({ x: canvas.width * 0.8, y: chosenY, width: 80, height: 90, speed: bgSpeed, ignored: false });
         }
 
-        function update() {
+        function update(dt) {
             if (!gameStarted || isPaused) return;
 
             if (undockTimer > 0) {
-                undockTimer--;
+                undockTimer -= dt;
             }
 
             if (isGameOver) {
-                fartman.vy += 0.8;
-                fartman.y += fartman.vy;
+                fartman.vy += 0.8 * dt;
+                fartman.y += fartman.vy * dt;
                 return;
             }
 
@@ -582,7 +587,7 @@
 
             bgSpeed = Math.min(9.0, baseBgSpeed + (score * 0.003));
 
-            bgX -= bgSpeed;
+            bgX -= bgSpeed * dt;
             const totalWidth = canvas.width * 11;
             if (bgX <= -totalWidth) {
                 bgX = 0;
@@ -591,7 +596,7 @@
             }
 
             for (let i = planes.length - 1; i >= 0; i--) {
-                planes[i].x -= planes[i].speed;
+                planes[i].x -= planes[i].speed * dt;
                 if (
                     undockTimer === 0 &&
                     fartman.x < planes[i].x + planes[i].width - 8 &&
@@ -605,7 +610,7 @@
             }
 
             for (let i = birds.length - 1; i >= 0; i--) {
-                birds[i].x -= birds[i].speed;
+                birds[i].x -= birds[i].speed * dt;
                 if (
                     undockTimer === 0 &&
                     fartman.x < birds[i].x + birds[i].width - 6 &&
@@ -619,9 +624,9 @@
             }
 
             if (isDocked) {
-                gas = Math.min(100, gas + 1.5); 
+                gas = Math.min(100, gas + (1.5 * dt)); 
                 if (activeMachine) {
-                    activeMachine.x -= bgSpeed;
+                    activeMachine.x -= bgSpeed * dt;
                     fartman.x = activeMachine.x + 5;
                     fartman.y = activeMachine.y - fartman.height + 5;
                 }
@@ -638,17 +643,17 @@
                 }
                 
                 for (let i = machines.length - 1; i >= 0; i--) {
-                    machines[i].x -= bgSpeed;
+                    machines[i].x -= bgSpeed * dt;
                     if (machines[i].x + machines[i].width < 0) machines.splice(i, 1);
                 }
                 return;
             }
 
-            fartman.vy += fartman.gravity;
-            fartman.y += fartman.vy;
+            fartman.vy += fartman.gravity * dt;
+            fartman.y += fartman.vy * dt;
             
             let gasDrainMultiplier = 1 + (score / 500);
-            gas = Math.max(0, gas - ((0.03 + (mapLevel * 0.003)) * gasDrainMultiplier)); 
+            gas = Math.max(0, gas - (((0.03 + (mapLevel * 0.003)) * gasDrainMultiplier) * dt)); 
 
             if (gas <= 0 && fartman.y >= canvas.height - 80) {
                 triggerGameOver();
@@ -664,7 +669,7 @@
             }
 
             for (let i = machines.length - 1; i >= 0; i--) {
-                machines[i].x -= bgSpeed;
+                machines[i].x -= bgSpeed * dt;
                 if (
                     !isDocked &&
                     !machines[i].ignored &&
@@ -684,9 +689,9 @@
                 if (machines[i].x + machines[i].width < 0) machines.splice(i, 1);
             }
 
-            score += 1;
+            score += 1 * dt;
 
-            spawnEntities();
+            spawnEntities(dt);
         }
 
         function draw() {
@@ -735,13 +740,18 @@
             ctx.fillText("STINK-O-METER", canvas.width - 180, 35);
         }
 
-        function loop() {
-            update();
+        let lastTime = performance.now();
+        function loop(currentTime) {
+            let dt = (currentTime - lastTime) / 16.666;
+            lastTime = currentTime;
+            if (dt > 3) dt = 3;
+
+            update(dt);
             draw();
             requestAnimationFrame(loop);
         }
 
-        loop();
+        requestAnimationFrame(loop);
     </script>
 </body>
 </html>
